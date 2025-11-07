@@ -9,209 +9,130 @@ using Microsoft.VisualBasic;
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 Console.InputEncoding = System.Text.Encoding.UTF8;
 
-HashSet<string> dict;
-
+IUserInterface ui = new ConsoleUI();
+HashSet<string> dictionary;
 Dictionary<string, string> language = [];
-string choose_language;
-
-while (true) {
-    Console.WriteLine("Выберите язык / Choose language: Русский(1), English(2)");
-    choose_language = Console.ReadLine();
-    if (choose_language == "1") {
-        SetLanguageRussian();
-        dict = new(File.ReadAllLines("russian.txt"), StringComparer.OrdinalIgnoreCase);
-        break;
-    }
-    else if (choose_language == "2") {
-        SetLanguageEnglish();
-        dict = new(File.ReadAllLines("english.txt"), StringComparer.OrdinalIgnoreCase);
-        break;
-    }
-    else Console.WriteLine("\nОшибка ввода / Input Error");
-}
-
-Console.WriteLine(language["choise_original_word"]);
-
-string? original_word;
-while (true) {
-    original_word = Console.ReadLine().ToLower();
-    if (dict.Contains(original_word)) break;
-    else {
-        Console.WriteLine(language["word_not_in_dictionary"]);
-        continue;
-    }
-}
-bool flag = true;
-while(flag) {    
-    if (original_word.Length < 8 || original_word.Length > 30) {
-        Console.WriteLine(language["size_error"]);
-        original_word = Console.ReadLine().ToLower();
-    }
-    else break;
-}
-
-List<char> original_word_letters = [.. original_word];
-Dictionary<char, int> original_word_dictionary = [];
-int count;
-
-for(int i = 0; i < original_word.Length; i++)
-{
-    count = 1;
-    for (int j = i; j < original_word.Length; j++)
-    {
-        if (i == j) continue;
-        if (original_word_letters[i] == original_word_letters[j]) count += 1;
-    }
-    original_word_dictionary.TryAdd(original_word_letters[i], count);
-}
-
 List<string> attempts = [];
-string first_player_try;
-string second_player_try;
-bool att;
-flag = true;
 
-while(flag) {
-    if(flag) att = true;
-    else att = false;
-    DateTime start = DateTime.Now;
-    int limit = 10;
+void ChooseLanguage() {
+    while (true) {
+        ui.PrintLine("Выберите язык / Choose language: Русский(1), English(2)");
+        string? choice = ui.ReadLine();
 
-    while (att)
+        if (choice == "1") {
+            if (!File.Exists("russian.txt")) {
+                ui.PrintError("Файл russian.txt не найден.");
+                Environment.Exit(1);
+            }
+            SetLanguageRussian();
+            dictionary = new(File.ReadAllLines("russian.txt"), StringComparer.OrdinalIgnoreCase);
+            break;
+        }
+        else if (choice == "2") {
+        if (!File.Exists("english.txt")) {
+            ui.PrintError("File english.txt not found.");
+            Environment.Exit(1);
+        }
+        SetLanguageEnglish();
+        dictionary = new(File.ReadAllLines("english.txt"), StringComparer.OrdinalIgnoreCase);
+        break;
+        }
+        else ui.PrintError("\nОшибка ввода / Input Error");
+    }
+}
+
+ChooseLanguage();
+
+
+string GetOriginalWord(HashSet<string> dictionary, Dictionary<string, string> language) {
+    const int MinWordLength = 8;
+    const int MaxWordLength = 30;
+
+    ui.PrintLine(language["choise_original_word"]);
+    while (true) {
+        string? word = ui.ReadLine()?.ToLower() ?? "";
+
+        if (!dictionary.Contains(word)) {
+            ui.PrintError(language["word_not_in_dictionary"]);
+            continue;
+        }
+        if (word.Length < MinWordLength || word.Length > MaxWordLength) {
+            ui.PrintError(language["size_error"]);
+            continue;
+        }
+        return word;
+    }
+}
+string originalWord = GetOriginalWord(dictionary, language);
+
+Dictionary<char, int> GetLetterCounts(string word) {
+    var counts = new Dictionary<char, int>();
+
+    foreach (char ch in word) {
+        if (counts.TryGetValue(ch, out int c)) counts[ch] = c + 1;
+        else counts[ch] = 1;
+    }
+    return counts;
+}
+
+Dictionary<char, int> originalWordDictionary = GetLetterCounts(originalWord);
+
+bool PlayerTurn(
+    string playerName,
+    HashSet<string> dict,
+    Dictionary<string, string> language,
+    Dictionary<char, int> original_word_dictionary,
+    List<string> attempts
+    )
     {
-        double elapsedMs = (DateTime.Now - start).TotalMilliseconds;
-        int remainingMs = (int)(limit * 1000 - elapsedMs);
-        int remainingSec = remainingMs > 0 ? (remainingMs + 999) / 1000 : 0;
-
-        if (remainingMs <= 0) {
-            Console.WriteLine(language["first_player_timeOut"]);
-            flag = false;
-            break;
-        }
-
-        Console.WriteLine(string.Format(language["time_left"], remainingSec));
-
-        string? input = AskWord(dict, language, remainingMs);
-        if (input == null) {
-            flag = false;
-            break;
-        }
-        if (input == "") continue;
-
-        first_player_try = input.ToLower();
-        Dictionary<char, int> first_player_try_dictionary = [];
-        List<char> first_player_try_letters = [.. first_player_try];
-
-        if(attempts.Contains(first_player_try)) {Console.WriteLine(language["reuse_word_error"]); continue;}
-        if (first_player_try == "-1") {flag = false; break;}
-
-        for (int i = 0; i < first_player_try.Length; i++)
-        {
-            count = 1;
-            for (int j = i; j < first_player_try.Length; j++)
-            {
-                if (i == j) continue;
-                if (first_player_try_letters[i] == first_player_try_letters[j]) count += 1;
+        const int InputTimeLimit = 10;
+        DateTime start = DateTime.Now;
+        while (true) {
+            if (!IsTimeOver(start, InputTimeLimit, playerName, language)) {
+                return false;
             }
-            first_player_try_dictionary.TryAdd(first_player_try_letters[i], count);
-        }
 
-        int num = 0;
-        foreach (var pair in first_player_try_dictionary)
-        {
-            char key = pair.Key;
-            int value1 = pair.Value;
-
-            if (original_word_dictionary.TryGetValue(key, out int value2))
-            {
-                if (value1 > value2) { Console.WriteLine(language["reuse_letters_error"]); break; }
-                else num += value1;
+            string? input = AskWord(dict, language, GetRemainingMs(start, InputTimeLimit));
+            if (input == null) {
+                return false;
             }
-            else { Console.WriteLine(language["availability_letters_error"]); break; }
-        }
+            if (input == "") continue;
 
-        if (num == first_player_try.Length)
-        {
-            attempts.Add(first_player_try);
-            break;
+            string playerWord = input.ToLower();
+            if (attempts.Contains(playerWord)) {
+                ui.PrintError(language["reuse_word_error"]);
+                continue;
+            }
+            if (playerWord == "-1") return false;
+
+            if (IsWordValid(playerWord, playerName, original_word_dictionary, language)) {
+               attempts.Add(playerWord);
+               break;
+            }
         }
+        return true;
     }
 
-    if (flag) att = true;
-    else att = false;
-    start = DateTime.Now;
-    limit = 10;
-
-    while(att) {
-        double elapsedMs = (DateTime.Now - start).TotalMilliseconds;
-        int remainingMs = (int)(limit * 1000 - elapsedMs);
-        int remainingSec = remainingMs > 0 ? (remainingMs + 999) / 1000 : 0;
-
-        if (remainingMs <= 0) {
-            Console.WriteLine(language["second_player_timeOut"]);
-            flag = false;
-            break;
-        }
-
-        Console.WriteLine(string.Format(language["time_left"], remainingSec));
-
-        string? input = AskWord(dict, language, remainingMs);
-        if (input == null) {
-            flag = false;
-            break;
-        }
-        if (input == "") continue;
-
-        second_player_try = input.ToLower();
-        Dictionary<char, int> second_player_try_dictionary = [];
-        List<char> second_player_try_letters = [.. second_player_try];
-
-        if (attempts.Contains(second_player_try)) {Console.WriteLine(language["reuse_word_error"]); continue;}
-        if (second_player_try == "-1") {flag = false; break;}
-
-        for (int i = 0; i < second_player_try.Length; i++) {
-            count = 1;
-            for (int j = i; j < second_player_try.Length; j++) {
-                if (i == j) continue;
-                if (second_player_try[i] == second_player_try[j]) count += 1;
-            }
-            second_player_try_dictionary.TryAdd(second_player_try_letters[i], count);
-        }
-
-        int num = 0;
-        foreach(var pair in second_player_try_dictionary) {
-            char key = pair.Key;
-            int value1 = pair.Value;
-
-            if(original_word_dictionary.TryGetValue(key, out int value2)) {
-                if (value1 > value2) {Console.WriteLine(language["reuse_letters_error"]); break;}
-                else num += value1;
-            }
-            else { Console.WriteLine(language["availability_letters_error"]); break; }
-        }
-
-        if (num == second_player_try.Length)
-        {
-            attempts.Add(second_player_try);
-            break;
-        }
-    }
+while (true)
+{
+    if (!PlayerTurn("1", dictionary, language, originalWordDictionary, attempts)) break;
+    if (!PlayerTurn("2", dictionary, language, originalWordDictionary, attempts)) break;
 }
 
 if (attempts.Count % 2 == 0) {
-    Console.WriteLine(language["second_player_win"]);
+    ui.PrintLine(language["second_player_win"]);
 }
 else {
-    Console.WriteLine(language["first_player_win"]);
+    ui.PrintLine(language["first_player_win"]);
 }
 
-Console.Write(language["used_words"]);
-foreach (string _ in attempts) Console.Write($"{_} ");
-Console.WriteLine("]");
+ui.Print(language["used_words"]);
+foreach (string _ in attempts) ui.Print($"{_} ");
+ui.Print("]");
 
 string? ReadLineWithTimeOut(int time) {
     string? result = null;
-    var task = Task.Run(() => result = Console.ReadLine());
+    var task = Task.Run(() => result = ui.ReadLine());
     if (task.Wait(time)) return result;
     else return null;
 }
@@ -259,12 +180,11 @@ void SetLanguageEnglish() {
 }
 
 string? AskWord(HashSet<string> dict, Dictionary<string, string> language, int remainingMs) {
-    Console.WriteLine(language["ask_word"]);
-
-    string? input = ReadLineWithTimeOut(remainingMs)?.ToLower();
+    ui.PrintLine(language["ask_word"]);
+    string? input = ReadLineWithTimeOut(remainingMs)?.ToLower()?.Trim();
 
     if (input == null) {
-        Console.WriteLine(language["loose_time"]);
+        ui.PrintLine(language["loose_time"]);
         return null;
     }
 
@@ -273,9 +193,76 @@ string? AskWord(HashSet<string> dict, Dictionary<string, string> language, int r
     }
 
     if (!dict.Contains(input)) {
-        Console.WriteLine(language["word_not_in_dictionary"]);
+        ui.PrintError(language["word_not_in_dictionary"]);
         return "";
     }
     return input;
 }
 
+bool IsTimeOver(DateTime start, int limit, string playerName, Dictionary<string, string> language) {
+    double elapsedMs = (DateTime.Now - start).TotalMilliseconds;
+    int remainingMs = (int)(limit * 1000 - elapsedMs);
+    int remainingSec = remainingMs > 0 ? (remainingMs + 999) / 1000 : 0;
+
+    if (remainingMs <= 0) {
+        ui.PrintLine(language[$"{(playerName == "1" ? "first" : "second")}_player_timeOut"]);
+        return false;
+    }
+    ui.PrintLine(string.Format(language["time_left"], remainingSec));
+    return true;
+}
+
+int GetRemainingMs(DateTime start, int limit) {
+    double elapsedMs = (DateTime.Now - start).TotalMilliseconds;
+    int remainingMs = (int)(limit * 1000 - elapsedMs);
+    return remainingMs;
+}
+
+bool IsWordValid(string playerWord, string playerName, Dictionary<char, int> originalWordDictionary, Dictionary<string, string> language) {
+    Dictionary<char, int> playerWordDictionary = GetLetterCounts(playerWord);
+    int validLetters = 0;
+    foreach (var pair in playerWordDictionary) {
+        char key = pair.Key;
+        int value1 = pair.Value;
+
+        if (originalWordDictionary.TryGetValue(key, out int value2)) {
+            if (value1 > value2) {
+                ui.PrintError(language["reuse_letters_error"]);
+                return false;
+                }
+            else validLetters += value1;
+            }
+        else {
+            ui.PrintError(language["availability_letters_error"]);
+            validLetters = -1;
+            break;
+        }
+    }
+    return validLetters == playerWord.Length;
+}
+
+interface IUserInterface {
+    void PrintLine(string message);
+    void Print(string message);
+    string? ReadLine();
+    void PrintError(string message);
+}
+
+class ConsoleUI : IUserInterface {
+    public void PrintLine(string message) {
+        Console.WriteLine(message);
+    }
+    public void Print(string message) {
+        Console.Write(message);
+    }
+    public string? ReadLine() {
+        return Console.ReadLine();
+
+    }
+    public void PrintError(string message) {
+        var oldColor = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine(message);
+        Console.ForegroundColor = oldColor;
+    }
+}
