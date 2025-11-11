@@ -1,0 +1,52 @@
+[
+    {
+      "Player1": "Alice",
+      "Player2": "Bob",
+      "Winner": "Alice"
+    },
+    {
+      "Player1": "Charlie",
+      "Player2": "Dana",
+      "Winner": "Dana"
+    },
+    {
+      "Player1": "Eve",
+      "Player2": "Frank",
+      "Winner": "Frank"
+    },
+    {
+      "Player1": "Grace",
+      "Player2": "Hank",
+      "Winner": "Grace"
+    },
+    {
+      "Player1": "Ivy",
+      "Player2": "Jack",
+      "Winner": "Jack"
+    },
+    {
+      "Player1": "Kelly",
+      "Player2": "Leo",
+      "Winner": "Kelly"
+    },
+    {
+      "Player1": "Mona",
+      "Player2": "Nate",
+      "Winner": "Mona"
+    },
+    {
+      "Player1": "Olivia",
+      "Player2": "Paul",
+      "Winner": "Paul"
+    },
+    {
+      "Player1": "Quinn",
+      "Player2": "Riley",
+      "Winner": "Riley"
+    },
+    {
+      "Player1": "Sophia",
+      "Player2": "Tyler",
+      "Winner": "Sophia"
+    }
+  ]

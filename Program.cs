@@ -18,6 +18,8 @@ Dictionary<string, string> language = [];
 List<string> attempts = [];
 
 ChooseLanguage();
+string player1Name = GetPlayerName("1", language);
+string player2Name = GetPlayerName("2", language);
 
 string originalWord = GetOriginalWord(dictionary, language);
 Dictionary<char, int> originalWordDictionary = GetLetterCounts(originalWord);
@@ -25,8 +27,8 @@ HandleCommand(originalWord, attempts, language);
 
 while (true)
 {
-    if (!PlayerTurn("1", dictionary, language, originalWordDictionary, attempts)) break;
-    if (!PlayerTurn("2", dictionary, language, originalWordDictionary, attempts)) break;
+    if (!PlayerTurn(player1Name, dictionary, language, originalWordDictionary, attempts)) break;
+    if (!PlayerTurn(player2Name, dictionary, language, originalWordDictionary, attempts)) break;
 }
 
 ShowResults();
@@ -62,6 +64,22 @@ void ChooseLanguage() {
             break;
         }
         else ui.PrintError("\nОшибка ввода / Input Error");
+    }
+}
+
+string GetPlayerName (string playerNumber, Dictionary<string, string> language) {
+    while (true) {
+        ui.PrintLine($"{language["select_name"]}{playerNumber}: ");
+
+        string? name = ui.ReadLine()?.Trim();
+        if (string.IsNullOrEmpty(name)) {
+            ui.PrintError(language["input_error"]);
+            continue;
+        }
+        if (name.Contains(' ')){
+            ui.PrintError(language["space_error"]);
+        }
+        else return name;
     }
 }
 
@@ -103,7 +121,7 @@ bool PlayerTurn(
     List<string> attempts
     )
 {
-    const int InputTimeLimit = 10;
+    const int InputTimeLimit = 20;
     DateTime start = DateTime.Now;
     while (true) {
         if (!IsTimeOver(start, InputTimeLimit, playerName, language)) {
@@ -142,20 +160,24 @@ void SetLanguageRussian() {
         {"input_error", "\nОшибка ввода."},
         {"word_not_in_dictionary", "\nТакого слова нет в словаре."},
         {"size_error", "\nДанное слово не соответствует требованию размеров."},
-        {"first_player_timeOut", "\nВремя пользователя №1 вышло."},
-        {"second_player_timeOut", "\nВремя пользователя №2 вышло."},
+        {"player_timeOut", "не успел придумать слово."},
         {"time_left", "\nПридумайте слово за {0} секунд. Введите /help для вывода доступных команд."},
         {"loose_time", "\nВремя на попытку вышло."},
         {"reuse_word_error", "Данное слово уже было использованно."},
         {"reuse_letters_error", "Данное слово не подходит, проверьте количество повторно использованных букв."},
         {"availability_letters_error", "Данное слово не подходит, проверьте наличие букв."},
-        {"first_player_win", "\n🏆Победил пользователь №1."},
-        {"second_player_win", "\n🏆Победил пользователь №2."},
+        {"player_win", "Победил 🏆"},
         {"used_words", "Слова раунда - [ "},
         {"available_commands", "Доступные команды:"},
         {"show_words", "Показать все введенные обоими пользователями слова в текущей игре;"},
         {"score", "Показать общий счет по играм для текущих игроков;"},
-        {"total_score", "Показать общий счет по играм для текущих игроков;"}
+        {"total_score", "Показать общий счет по играм для текущих игроков;"},
+        {"wrong_command", "Данной команды не существует."},
+        {"exit", "Принудительно завершить раунд."},
+        {"select_name", "Введите никнейм для игрока "},
+        {"space_error", "Имя не должно содержать пробелы."},
+        {"file_data_error", "Нет данных о прошлых играх."},
+        {"best_players", "🏆 Таблица лучших игроков 🏆"},
     };
 }
 
@@ -167,20 +189,24 @@ void SetLanguageEnglish() {
         {"input_error", "\nInput Error."},
         {"word_not_in_dictionary", "\nThis word is not in the dictionary."},
         {"size_error", "\nThis word does not meet the size requirement."},
-        {"first_player_timeOut", "\nUser #1's time has expired."},
-        {"second_player_timeOut", "\nUser #2's time has expired."},
+        {"player_timeOut", "didn't have time to think of a word."},
         {"time_left", "\nCome up with a word in {0} seconds. Type /help to display available commands."},
         {"loose_time", "\nTime to try is up."},
         {"reuse_word_error", "This word has already been used."},
         {"reuse_letters_error", "This word is not suitable, check the number of reused letters."},
         {"availability_letters_error", "This word is not suitable, check the presence of letters."},
-        {"first_player_win", "\n🏆User #1 wins."},
-        {"second_player_win", "\n🏆User #2 wins."},
+        {"player_win", "wins 🏆"},
         {"used_words", "Words used in the round - [ "},
         {"available_commands", "Available commands:"},
         {"show_words", "Show all words entered by both users in the current game;"},
         {"score", "Show the total score by game for current players;"},
-        {"total_score", "Show the total score by game for current players;"}
+        {"total_score", "Show the total score by game for current players;"},
+        {"wrong_command", "This command does not exist."},
+        {"exit", "Force end of round."},
+        {"select_name", "Enter a nickname for the player "},
+        {"space_error", "Name must not contain spaces."},
+        {"file_data_error", "No data about past games."},
+        {"best_players", "🏆 Table of best players 🏆"},
     };
 }
 
@@ -208,7 +234,7 @@ bool IsTimeOver(DateTime start, int limit, string playerName, Dictionary<string,
     int remainingSec = remainingMs > 0 ? (remainingMs + 999) / 1000 : 0;
 
     if (remainingMs <= 0) {
-        ui.PrintLine(language[$"{(playerName == "1" ? "first" : "second")}_player_timeOut"]);
+        ui.PrintLine($"{playerName} {language["player_timeOut"]}");
         return false;
     }
     ui.PrintLine(string.Format(language["time_left"], remainingSec));
@@ -245,13 +271,16 @@ bool IsWordValid(string playerWord, string playerName, Dictionary<char, int> ori
 }
 
 void ShowResults() {
+    string winner;
     if (attempts.Count % 2 == 0) {
-    ui.PrintLine(language["second_player_win"]);
+    ui.PrintGreen($"{player2Name} {language["player_win"]}");
+    winner = player2Name;
     }
     else {
-    ui.PrintLine(language["first_player_win"]);
+    ui.PrintGreen($"{player1Name} {language["player_win"]}");
+    winner = player1Name;
     }
-
+    SaveResult(player1Name, player2Name, winner);
     ShowWords();
 }
 
@@ -261,7 +290,28 @@ void ShowWords() {
     ui.Print("]");
 }
 
+void SaveResult(string player1, string player2, string winner) {
+    string filePath = "result.json";
+    List<GameResult> results = [];
+
+    if(File.Exists(filePath)) {
+        string json = File.ReadAllText(filePath);
+        results = System.Text.Json.JsonSerializer.Deserialize<List<GameResult>>(json) ?? [];
+    }
+    results.Add(new GameResult {
+        Player1 = player1,
+        Player2 = player2,
+        Winner = winner
+    });
+
+    string updatedJson = System.Text.Json.JsonSerializer.Serialize(results, new System.Text.Json.JsonSerializerOptions {WriteIndented = true});
+    File.WriteAllText(filePath, updatedJson);
+}
+
 bool HandleCommand(string input, List<string> attempts, Dictionary<string, string> language) {
+    if (!input.StartsWith("/"))
+        return false;
+
     switch (input) {
 
         case "/help":
@@ -269,6 +319,7 @@ bool HandleCommand(string input, List<string> attempts, Dictionary<string, strin
             ui.PrintLine($"/show-words - {language["show_words"]}");
             ui.PrintLine($"/score - {language["score"]}");
             ui.PrintLine($"/total-score - {language["total_score"]}");
+            ui.PrintLine($"/exit - {language["exit"]}");
             return true;
 
         case "/show-words":
@@ -279,6 +330,7 @@ bool HandleCommand(string input, List<string> attempts, Dictionary<string, strin
             return true;
 
         case "/total-score":
+            ShowTotalScore(language);
             return true;    
 
         case "/exit":
@@ -286,14 +338,53 @@ bool HandleCommand(string input, List<string> attempts, Dictionary<string, strin
             return true;
 
         default:
-            return false;
+            ui.PrintError(language["wrong_command"]);
+            return true;
     }
 }
+
+void ShowTotalScore(Dictionary<string, string> language) {
+    string filePath = "result.json";
+
+    if(!File.Exists(filePath)) {
+        ui.PrintError(language["file_data_error"]);
+        return;
+    }
+
+    string json = File.ReadAllText(filePath);
+    List <GameResult>? results = System.Text.Json.JsonSerializer.Deserialize<List<GameResult>>(json);
+
+    if (results == null || results.Count == 0) {
+        ui.PrintError(language["file_data_error"]);
+        return;
+    }
+    Dictionary<string, int> scores = [];
+    foreach (var result in results) {
+        if(!scores.TryGetValue(result.Winner, out int value)) {
+            scores[result.Winner] = 1;
+        }
+        else scores[result.Winner] = ++value;
+    }
+    ShowTableOfBestPlayers(scores, language);
+    
+}
+
+void ShowTableOfBestPlayers(Dictionary<string, int> scores, Dictionary<string, string> language) {
+    var sortedScore = scores.OrderByDescending(s => s.Value);
+    ui.PrintGreen($"\n{language["best_players"]}");
+    foreach (var player in sortedScore) {
+        ui.PrintOrange($"\t{player.Key} - {player.Value}");
+    }
+}
+
+
 interface IUserInterface {
     void PrintLine(string message);
     void Print(string message);
     string? ReadLine();
     void PrintError(string message);
+    void PrintGreen(string message);
+    void PrintOrange(string message);
 }
 
 class ConsoleUI : IUserInterface {
@@ -313,4 +404,24 @@ class ConsoleUI : IUserInterface {
         Console.WriteLine(message);
         Console.ForegroundColor = oldColor;
     }
+    public void PrintGreen(string message) {
+        var oldColor = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine(message);
+        Console.ForegroundColor = oldColor;
+    }
+    public void PrintOrange(string message) {
+        var oldColor = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.WriteLine(message);
+        Console.ForegroundColor = oldColor;
+    }
+}
+
+class GameResult {
+    public required string Player1 {get; set;}
+    public required string Player2 {get; set;}
+    public required string Winner {get; set;}
+
+
 }
