@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 Console.InputEncoding = System.Text.Encoding.UTF8;
 
-ConsoleUI ui = new ConsoleUI();
+ConsoleUI ui = new();
 HashSet<string> dictionary;
 Dictionary<string, string> language = [];
 List<string> attempts = [];
@@ -21,6 +21,7 @@ ChooseLanguage();
 
 string originalWord = GetOriginalWord(dictionary, language);
 Dictionary<char, int> originalWordDictionary = GetLetterCounts(originalWord);
+HandleCommand(originalWord, attempts, language);
 
 while (true)
 {
@@ -115,12 +116,15 @@ bool PlayerTurn(
         }
         if (input == "") continue;
 
+        if (HandleCommand(input, attempts, language)) {
+            continue;
+        }
+
         string playerWord = input.ToLower();
         if (attempts.Contains(playerWord)) {
             ui.PrintError(language["reuse_word_error"]);
             continue;
         }
-        if (playerWord == "-1") return false;
 
         if (IsWordValid(playerWord, playerName, original_word_dictionary, language)) {
            attempts.Add(playerWord);
@@ -140,14 +144,18 @@ void SetLanguageRussian() {
         {"size_error", "\nДанное слово не соответствует требованию размеров."},
         {"first_player_timeOut", "\nВремя пользователя №1 вышло."},
         {"second_player_timeOut", "\nВремя пользователя №2 вышло."},
-        {"time_left", "\nПридумайте слово за {0} секунд. Или же напишите -1 для завершения игры."},
+        {"time_left", "\nПридумайте слово за {0} секунд. Введите /help для вывода доступных команд."},
         {"loose_time", "\nВремя на попытку вышло."},
         {"reuse_word_error", "Данное слово уже было использованно."},
         {"reuse_letters_error", "Данное слово не подходит, проверьте количество повторно использованных букв."},
         {"availability_letters_error", "Данное слово не подходит, проверьте наличие букв."},
         {"first_player_win", "\n🏆Победил пользователь №1."},
         {"second_player_win", "\n🏆Победил пользователь №2."},
-        {"used_words", "Слова раунда - [ "}
+        {"used_words", "Слова раунда - [ "},
+        {"available_commands", "Доступные команды:"},
+        {"show_words", "Показать все введенные обоими пользователями слова в текущей игре;"},
+        {"score", "Показать общий счет по играм для текущих игроков;"},
+        {"total_score", "Показать общий счет по играм для текущих игроков;"}
     };
 }
 
@@ -161,14 +169,18 @@ void SetLanguageEnglish() {
         {"size_error", "\nThis word does not meet the size requirement."},
         {"first_player_timeOut", "\nUser #1's time has expired."},
         {"second_player_timeOut", "\nUser #2's time has expired."},
-        {"time_left", "\nCome up with a word in {0} seconds. Or type -1 to end the game."},
+        {"time_left", "\nCome up with a word in {0} seconds. Type /help to display available commands."},
         {"loose_time", "\nTime to try is up."},
         {"reuse_word_error", "This word has already been used."},
         {"reuse_letters_error", "This word is not suitable, check the number of reused letters."},
         {"availability_letters_error", "This word is not suitable, check the presence of letters."},
         {"first_player_win", "\n🏆User #1 wins."},
         {"second_player_win", "\n🏆User #2 wins."},
-        {"used_words", "Words used in the round - [ "}
+        {"used_words", "Words used in the round - [ "},
+        {"available_commands", "Available commands:"},
+        {"show_words", "Show all words entered by both users in the current game;"},
+        {"score", "Show the total score by game for current players;"},
+        {"total_score", "Show the total score by game for current players;"}
     };
 }
 
@@ -181,9 +193,7 @@ string? AskWord(HashSet<string> dict, Dictionary<string, string> language, int r
         return null;
     }
 
-    if (input == "-1") {
-        return null;
-    }
+    if (input.StartsWith("/")) return input;
 
     if (!dict.Contains(input)) {
         ui.PrintError(language["word_not_in_dictionary"]);
@@ -242,9 +252,42 @@ void ShowResults() {
     ui.PrintLine(language["first_player_win"]);
     }
 
+    ShowWords();
+}
+
+void ShowWords() {
     ui.Print(language["used_words"]);
     foreach (string _ in attempts) ui.Print($"{_} ");
     ui.Print("]");
+}
+
+bool HandleCommand(string input, List<string> attempts, Dictionary<string, string> language) {
+    switch (input) {
+
+        case "/help":
+            ui.PrintLine($"\n{language["available_commands"]}");
+            ui.PrintLine($"/show-words - {language["show_words"]}");
+            ui.PrintLine($"/score - {language["score"]}");
+            ui.PrintLine($"/total-score - {language["total_score"]}");
+            return true;
+
+        case "/show-words":
+            ShowWords();
+            return true;
+
+        case "/score":
+            return true;
+
+        case "/total-score":
+            return true;    
+
+        case "/exit":
+            Environment.Exit(0);
+            return true;
+
+        default:
+            return false;
+    }
 }
 interface IUserInterface {
     void PrintLine(string message);
