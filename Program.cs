@@ -129,13 +129,17 @@ bool PlayerTurn(
         }
 
         string? input = AskWord(dict, language, GetRemainingMs(start, InputTimeLimit));
+        string? cmd = HandleCommand(input, attempts, language);
         if (input == null) {
             return false;
         }
         if (input == "") continue;
 
-        if (HandleCommand(input, attempts, language)) {
+        if (cmd == "executed") {
             continue;
+        }
+        if (cmd == "exit") {
+            return false;
         }
 
         string playerWord = input.ToLower();
@@ -237,7 +241,8 @@ bool IsTimeOver(DateTime start, int limit, string playerName, Dictionary<string,
         ui.PrintLine($"{playerName} {language["player_timeOut"]}");
         return false;
     }
-    ui.PrintLine(string.Format(language["time_left"], remainingSec));
+    ui.PrintOrange($"\n{playerName} ваш ход!");
+    ui.Print(string.Format(language["time_left"], remainingSec));
     return true;
 }
 
@@ -304,13 +309,13 @@ void SaveResult(string player1, string player2, string winner) {
         Winner = winner
     });
 
-    string updatedJson = System.Text.Json.JsonSerializer.Serialize(results, new System.Text.Json.JsonSerializerOptions {WriteIndented = true});
+    string updatedJson = System.Text.Json.JsonSerializer.Serialize(results, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     File.WriteAllText(filePath, updatedJson);
 }
 
-bool HandleCommand(string input, List<string> attempts, Dictionary<string, string> language) {
+string HandleCommand(string input, List<string> attempts, Dictionary<string, string> language) {
     if (!input.StartsWith("/"))
-        return false;
+        return "none";
 
     switch (input) {
 
@@ -320,26 +325,26 @@ bool HandleCommand(string input, List<string> attempts, Dictionary<string, strin
             ui.PrintLine($"/score - {language["score"]}");
             ui.PrintLine($"/total-score - {language["total_score"]}");
             ui.PrintLine($"/exit - {language["exit"]}");
-            return true;
+            return "executed";
 
         case "/show-words":
             ShowWords();
-            return true;
+            return "executed";
 
         case "/score":
-            return true;
+            ShowHeadToHeadScore(player1Name, player2Name, language);
+            return "executed";
 
         case "/total-score":
             ShowTotalScore(language);
-            return true;    
+            return "executed";    
 
         case "/exit":
-            Environment.Exit(0);
-            return true;
+            return "exit";
 
         default:
             ui.PrintError(language["wrong_command"]);
-            return true;
+            return "executed";
     }
 }
 
@@ -366,7 +371,6 @@ void ShowTotalScore(Dictionary<string, string> language) {
         else scores[result.Winner] = ++value;
     }
     ShowTableOfBestPlayers(scores, language);
-    
 }
 
 void ShowTableOfBestPlayers(Dictionary<string, int> scores, Dictionary<string, string> language) {
@@ -375,6 +379,36 @@ void ShowTableOfBestPlayers(Dictionary<string, int> scores, Dictionary<string, s
     foreach (var player in sortedScore) {
         ui.PrintOrange($"\t{player.Key} - {player.Value}");
     }
+}
+
+void ShowHeadToHeadScore(string player1, string player2, Dictionary<string, string> language) {
+    string filePath = "result.json";
+
+    if(!File.Exists(filePath)) {
+        ui.PrintError(language["file_data_error"]);
+    }
+    
+    string json = File.ReadAllText(filePath);
+    List <GameResult>? results = System.Text.Json.JsonSerializer.Deserialize<List<GameResult>>(json);
+
+    if (results == null || results.Count == 0) {
+        ui.PrintError(language["file_data_error"]);
+        return;
+    }
+    Dictionary<string, int> scores = [];
+    foreach (var pair in results) {
+        if((player1 == pair.Player1 && player2 == pair.Player2) || (player1 == pair.Player2 && player2 == pair.Player1)) {
+            if(!scores.TryGetValue(pair.Winner, out int value)) {
+                scores[pair.Winner] = 1;
+            }
+            else scores[pair.Winner] = ++value;
+        }
+    }
+    if (scores.Count == 0) {
+        ui.PrintError(language["file_data_error"]);
+        return;
+    }
+    ShowTableOfBestPlayers(scores, language);
 }
 
 
