@@ -39,7 +39,10 @@ string? ReadLineWithTimeOut(int time) {
     if (task.Wait(time)) return result;
     else return null;
 }
-
+/// <summary>
+/// Handles language selection at program start. 
+/// Loads the appropriate dictionary file and sets the language dictionary.
+/// </summary>
 void ChooseLanguage() {
     while (true) {
         ui.PrintLine("Выберите язык / Choose language: Русский(1), English(2)");
@@ -66,7 +69,10 @@ void ChooseLanguage() {
         else ui.PrintError("\nОшибка ввода / Input Error");
     }
 }
-
+/// <summary>
+/// Asks the user to enter a nickname for a player.
+/// Validates non-empty input and absence of spaces.
+/// </summary>
 string GetPlayerName (string playerNumber, Dictionary<string, string> language) {
     while (true) {
         ui.PrintLine($"{language["select_name"]}{playerNumber}: ");
@@ -82,7 +88,10 @@ string GetPlayerName (string playerNumber, Dictionary<string, string> language) 
         else return name;
     }
 }
-
+/// <summary>
+/// Requests the original word from the player.
+/// Checks word existence in dictionary and validates its length.
+/// </summary>
 string GetOriginalWord(HashSet<string> dictionary, Dictionary<string, string> language) {
     const int MinWordLength = 8;
     const int MaxWordLength = 30;
@@ -102,7 +111,10 @@ string GetOriginalWord(HashSet<string> dictionary, Dictionary<string, string> la
         return word;
     }
 }
-
+/// <summary>
+/// Returns a dictionary of character frequencies for the given word.
+/// Used to validate constructed player words.
+/// </summary>
 Dictionary<char, int> GetLetterCounts(string word) {
     var counts = new Dictionary<char, int>();
 
@@ -112,7 +124,14 @@ Dictionary<char, int> GetLetterCounts(string word) {
     }
     return counts;
 }
-
+/// <summary>
+/// Executes one full turn of the given player:
+/// - Checks time limits
+/// - Accepts commands
+/// - Validates word
+/// - Adds valid word to attempts list
+/// Returns false when the player loses or exits.
+/// </summary>
 bool PlayerTurn(
     string playerName,
     HashSet<string> dict,
@@ -155,7 +174,9 @@ bool PlayerTurn(
     }
     return true;
 }
-
+/// <summary>
+/// Loads Russian localization strings into the language dictionary.
+/// </summary>
 void SetLanguageRussian() {
     language = new Dictionary<string, string>()
     {
@@ -182,9 +203,12 @@ void SetLanguageRussian() {
         {"space_error", "Имя не должно содержать пробелы."},
         {"file_data_error", "Нет данных о прошлых играх."},
         {"best_players", "🏆 Таблица лучших игроков 🏆"},
+        {"player_move", "ваш ход!"},
     };
 }
-
+/// <summary>
+/// Loads English localization strings into the language dictionary.
+/// </summary>
 void SetLanguageEnglish() {
     language = new Dictionary<string, string>()
     {
@@ -211,9 +235,14 @@ void SetLanguageEnglish() {
         {"space_error", "Name must not contain spaces."},
         {"file_data_error", "No data about past games."},
         {"best_players", "🏆 Table of best players 🏆"},
+        {"player_move", "your move!"},
     };
 }
-
+/// <summary>
+/// Reads a word from the user with a timeout.
+/// Validates against dictionary unless it's a command.
+/// Returns: null on timeout, empty string on invalid word.
+/// </summary>
 string? AskWord(HashSet<string> dict, Dictionary<string, string> language, int remainingMs) {
     ui.PrintLine(language["ask_word"]);
     string? input = ReadLineWithTimeOut(remainingMs)?.ToLower()?.Trim();
@@ -231,7 +260,10 @@ string? AskWord(HashSet<string> dict, Dictionary<string, string> language, int r
     }
     return input;
 }
-
+/// <summary>
+/// Checks if the player's input time has expired.
+/// Displays remaining time and messages.
+/// </summary>
 bool IsTimeOver(DateTime start, int limit, string playerName, Dictionary<string, string> language) {
     double elapsedMs = (DateTime.Now - start).TotalMilliseconds;
     int remainingMs = (int)(limit * 1000 - elapsedMs);
@@ -241,17 +273,24 @@ bool IsTimeOver(DateTime start, int limit, string playerName, Dictionary<string,
         ui.PrintLine($"{playerName} {language["player_timeOut"]}");
         return false;
     }
-    ui.PrintOrange($"\n{playerName} ваш ход!");
+    ui.PrintOrange($"\n{playerName} {language["player_move"]}");
     ui.Print(string.Format(language["time_left"], remainingSec));
     return true;
 }
-
+/// <summary>
+/// Returns how many milliseconds remain before time runs out.
+/// </summary>
 int GetRemainingMs(DateTime start, int limit) {
     double elapsedMs = (DateTime.Now - start).TotalMilliseconds;
     int remainingMs = (int)(limit * 1000 - elapsedMs);
     return remainingMs;
 }
-
+/// <summary>
+/// Validates that the player's word:
+/// - Uses only available letters
+/// - Respects letter frequencies
+/// - Exists in dictionary (already checked earlier)
+/// </summary>
 bool IsWordValid(string playerWord, string playerName, Dictionary<char, int> originalWordDictionary, Dictionary<string, string> language) {
     Dictionary<char, int> playerWordDictionary = GetLetterCounts(playerWord);
     int validLetters = 0;
@@ -274,7 +313,10 @@ bool IsWordValid(string playerWord, string playerName, Dictionary<char, int> ori
     }
     return validLetters == playerWord.Length;
 }
-
+/// <summary>
+/// Determines the winner based on the number of attempts.
+/// Saves the game result and displays used words.
+/// </summary>
 void ShowResults() {
     string winner;
     if (attempts.Count % 2 == 0) {
@@ -288,13 +330,18 @@ void ShowResults() {
     SaveResult(player1Name, player2Name, winner);
     ShowWords();
 }
-
+/// <summary>
+/// Prints all words entered by both players in the current round.
+/// </summary>
 void ShowWords() {
     ui.Print(language["used_words"]);
     foreach (string _ in attempts) ui.Print($"{_} ");
     ui.Print("]");
 }
-
+/// <summary>
+/// Saves the game result (player1, player2, winner) into result.json.
+/// Appends to existing data using JSON serialization.
+/// </summary>
 void SaveResult(string player1, string player2, string winner) {
     string filePath = "result.json";
     List<GameResult> results = [];
@@ -312,7 +359,12 @@ void SaveResult(string player1, string player2, string winner) {
     string updatedJson = System.Text.Json.JsonSerializer.Serialize(results, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     File.WriteAllText(filePath, updatedJson);
 }
-
+/// <summary>
+/// Processes player commands such as:
+/// /show-words, /score, /total-score, /help, /exit
+/// Returns:
+/// "executed", "exit", or "none".
+/// </summary>
 string HandleCommand(string input, List<string> attempts, Dictionary<string, string> language) {
     if (!input.StartsWith("/"))
         return "none";
@@ -347,7 +399,10 @@ string HandleCommand(string input, List<string> attempts, Dictionary<string, str
             return "executed";
     }
 }
-
+/// <summary>
+/// Loads all results from result.json and calculates total wins per player.
+/// Displays global leaderboard.
+/// </summary>
 void ShowTotalScore(Dictionary<string, string> language) {
     string filePath = "result.json";
 
@@ -372,7 +427,9 @@ void ShowTotalScore(Dictionary<string, string> language) {
     }
     ShowTableOfBestPlayers(scores, language);
 }
-
+/// <summary>
+/// Prints a formatted leaderboard sorted by number of wins.
+/// </summary>
 void ShowTableOfBestPlayers(Dictionary<string, int> scores, Dictionary<string, string> language) {
     var sortedScore = scores.OrderByDescending(s => s.Value);
     ui.PrintGreen($"\n{language["best_players"]}");
@@ -380,7 +437,9 @@ void ShowTableOfBestPlayers(Dictionary<string, int> scores, Dictionary<string, s
         ui.PrintOrange($"\t{player.Key} - {player.Value}");
     }
 }
-
+/// <summary>
+/// Shows win statistics specifically between the two current players.
+/// </summary>
 void ShowHeadToHeadScore(string player1, string player2, Dictionary<string, string> language) {
     string filePath = "result.json";
 
@@ -411,7 +470,10 @@ void ShowHeadToHeadScore(string player1, string player2, Dictionary<string, stri
     ShowTableOfBestPlayers(scores, language);
 }
 
-
+/// <summary>
+/// Defines an abstraction for input/output.
+/// Allows the game to work with Console or alternative UI.
+/// </summary>
 interface IUserInterface {
     void PrintLine(string message);
     void Print(string message);
@@ -420,7 +482,10 @@ interface IUserInterface {
     void PrintGreen(string message);
     void PrintOrange(string message);
 }
-
+/// <summary>
+/// Console implementation of IUserInterface.
+/// Handles colored output and standard console I/O.
+/// </summary>
 class ConsoleUI : IUserInterface {
     public void PrintLine(string message) {
         Console.WriteLine(message);
@@ -451,7 +516,11 @@ class ConsoleUI : IUserInterface {
         Console.ForegroundColor = oldColor;
     }
 }
-
+/// <summary>
+/// Represents a single recorded game:
+/// Player1, Player2, Winner.
+/// Used for JSON serialization.
+/// </summary>
 class GameResult {
     public required string Player1 {get; set;}
     public required string Player2 {get; set;}
